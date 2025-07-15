@@ -37,7 +37,9 @@ void cutlass_gemm_wrapper(int M, int N, int K,
                           cutlass::float_e4m3_t const *ptrA,
                           cutlass::float_e5m2_t const *ptrB,
                           cutlass::float_e4m3_t *ptrC,
-                          cutlass::float_e4m3_t const *ptrD) {
+                          cutlass::float_e4m3_t const *ptrD,
+                          float overlap_ratio = 0.5f,
+                          float prefetch_ratio = 0.5f) {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////
   /// GEMM kernel configurations
@@ -158,8 +160,8 @@ void cutlass_gemm_wrapper(int M, int N, int K,
   //   fusion_args.alpha_ptr = scalar_alpha.device_data();
   //   fusion_args.beta_ptr = scalar_beta.device_data();
   ///////////////////////////////////
-  arguments.mainloop.overlap_ratio = 0.5;
-  arguments.mainloop.prefetch_ratio = 0.5;
+  arguments.mainloop.overlap_ratio = overlap_ratio;
+  arguments.mainloop.prefetch_ratio = prefetch_ratio;
 
   size_t workspace_size = Gemm::get_workspace_size(arguments);
   cutlass::device_memory::allocation<uint8_t> workspace(workspace_size);

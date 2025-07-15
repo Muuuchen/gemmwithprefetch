@@ -9,10 +9,13 @@
 #include "include/gemm_with_prefetch_interface.hpp"
 
 void cutlass_gemm_wrapper(int M, int N, int K, const int *ptrA, const int *ptrB,
-                          int *ptrC, const int *ptrD);
+                          int *ptrC, const int *ptrD,
+                          float overlap_ratio = 0.5f,
+                          float prefetch_ratio = 0.5f);
 
 void cutlass_gemm_unpack(torch::Tensor A, torch::Tensor B, torch::Tensor C,
-                         torch::Tensor D) {
+                         torch::Tensor D, float overlap_ratio = 0.5f,
+                         float prefetch_ratio = 0.5f) {
   const int M = A.sizes()[0];
   const int N = B.sizes()[1];
   const int K = A.sizes()[1];
@@ -24,23 +27,28 @@ void cutlass_gemm_unpack(torch::Tensor A, torch::Tensor B, torch::Tensor C,
       reinterpret_cast<cutlass::float_e4m3_t *>(C.data_ptr());
   cutlass::float_e4m3_t const *ptrD =
       reinterpret_cast<cutlass::float_e4m3_t *>(D.data_ptr());
-  cutlass_gemm_wrapper(M, N, K, ptrA, ptrB, ptrC, ptrD);
+  cutlass_gemm_wrapper(M, N, K, ptrA, ptrB, ptrC, ptrD, overlap_ratio,
+                       prefetch_ratio);
 }
 
 void cutlass_gemm_with_prefetch_type_check(torch::Tensor A, torch::Tensor B,
-                                           torch::Tensor C, torch::Tensor D) {
+                                           torch::Tensor C, torch::Tensor D,
+                                           float overlap_ratio = 0.5f,
+                                           float prefetch_ratio = 0.5f) {
   if (A.dtype() != torch::kFloat8_e4m3fn || B.dtype() != torch::kFloat8_e5m2 ||
       C.dtype() != torch::kFloat8_e4m3fn ||
       D.dtype() != torch::kFloat8_e4m3fn) {
     throw std::runtime_error("Unsupported data type for A");
   } else {
-    cutlass_gemm_unpack(A, B, C, D);
+    cutlass_gemm_unpack(A, B, C, D, overlap_ratio, prefetch_ratio);
   }
 }
 
 torch::Tensor cutlass_gemm_with_prefetch(torch::Tensor A, torch::Tensor B,
                                          c10::optional<torch::Tensor> out,
-                                         torch::Tensor D) {
+                                         torch::Tensor D,
+                                         float overlap_ratio = 0.5f,
+                                         float prefetch_ratio = 0.5f) {
   torch::Tensor C;
   if (out.has_value()) { // Output tensor was provided. So we will use it.
     C = out.value();
@@ -61,7 +69,8 @@ torch::Tensor cutlass_gemm_with_prefetch(torch::Tensor A, torch::Tensor B,
   torch::Tensor _C = C.contiguous();
   torch::Tensor _D = D.contiguous();
 
-  cutlass_gemm_with_prefetch_type_check(_A, _B, _C, _D);
+  cutlass_gemm_with_prefetch_type_check(_A, _B, _C, _D, overlap_ratio,
+                                        prefetch_ratio);
   if (!C.is_contiguous())
     C.copy_(_C);
 
@@ -72,7 +81,8 @@ torch::Tensor cutlass_gemm_with_prefetch(torch::Tensor A, torch::Tensor B,
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("mm",
         py::overload_cast<torch::Tensor, torch::Tensor,
-                          c10::optional<torch::Tensor>, torch::Tensor>(
-            &cutlass_gemm_with_prefetch),
-        py::arg("A"), py::arg("B"), py::arg("out"), py::arg("D") = py::none());
+                          c10::optional<torch::Tensor>, torch::Tensor, float,
+                          float>(&cutlass_gemm_with_prefetch),
+        py::arg("A"), py::arg("B"), py::arg("out"), py::arg("D"),
+        py::arg("overlap_ratio"), py::arg("prefetch_ratio") = py::none());
 }
