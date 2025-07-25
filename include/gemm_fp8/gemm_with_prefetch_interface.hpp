@@ -29,7 +29,7 @@
 #include "kernel/sm90_gemm_tma_warpspecialized_with_prefetch.hpp"
 
 #include "gemm_with_weight_prefetch_commandline.hpp"
-#include "helper.h"
+#include "helper.hpp"
 
 using namespace cute;
 

@@ -1,17 +1,18 @@
-#include <torch/extension.h>
-
 #include <cstdio>
 #include <cutlass/cutlass.h>
 #include <cutlass/numeric_types.h>
 #include <iostream>
 #include <pybind11/pybind11.h>
+#include <torch/extension.h>
 
-#include "include/gemm_with_prefetch_interface.hpp"
+#include "gemm/gemm_with_prefetch_interface.hpp"
 
-void cutlass_gemm_wrapper(int M, int N, int K, const int *ptrA, const int *ptrB,
-                          int *ptrC, const int *ptrD,
-                          float overlap_ratio = 0.5f,
-                          float prefetch_ratio = 0.5f);
+void cutlass_gemm_wrapper(int M, int N, int K,
+                          cutlass::float_e4m3_t const *ptrA,
+                          cutlass::float_e5m2_t const *ptrB,
+                          cutlass::float_e4m3_t *ptrC,
+                          cutlass::float_e4m3_t const *ptrD,
+                          float overlap_ratio, float prefetch_ratio);
 
 void cutlass_gemm_unpack(torch::Tensor A, torch::Tensor B, torch::Tensor C,
                          torch::Tensor D, float overlap_ratio = 0.5f,

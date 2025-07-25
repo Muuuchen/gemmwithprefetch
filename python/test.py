@@ -14,10 +14,9 @@ start_event = torch.cuda.Event(enable_timing=True)
 end_event = torch.cuda.Event(enable_timing=True)
 start_event.record()
 
-C = cutlass_gemm_with_prefetch.mm(A, B,C, D,0.5,0.5)
-C = cutlass_gemm_with_prefetch.mm(A, B,C, D,0.5,0.5)
-C = cutlass_gemm_with_prefetch.mm(A, B,C, D,0.5,0.5)
-C = cutlass_gemm_with_prefetch.mm(A, B,C, D,0.5,0.5)
+C = cutlass_gemm_with_prefetch.mm(A, B, C, D,0.5,0.5)
+C = cutlass_gemm_with_prefetch.mm(A, B, C, D,0.5,0.5)
+
 end_event.record()
 
 # 等待事件完成
