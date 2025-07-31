@@ -5,17 +5,26 @@ import math
 import cutlass_gemm_with_prefetch
 
 M = K = N = 8192
-cuda = torch.device('cuda')
+cuda = torch.device('cuda:1')
 A = torch.normal(0,1,size=(M, K)).to(device=cuda).to(dtype=torch.float8_e4m3fn)
 B = torch.normal(0,1,size=(K, N)).to(device=cuda).to(dtype=torch.float8_e5m2)
 C = torch.empty((M, N), device=cuda, dtype=torch.float8_e4m3fn)
 D = torch.normal(0,1,size=(M, N)).to(device=cuda).to(dtype=torch.float8_e4m3fn)
+E= torch.empty((M, N), device=cuda, dtype=torch.float8_e4m3fn)
+F = torch.normal(0,1,size=(M, N)).to(device=cuda).to(dtype=torch.float8_e4m3fn)
+
 start_event = torch.cuda.Event(enable_timing=True)
 end_event = torch.cuda.Event(enable_timing=True)
 start_event.record()
 
+
 C = cutlass_gemm_with_prefetch.mm(A, B, C, D,0.5,0.5)
 C = cutlass_gemm_with_prefetch.mm(A, B, C, D,0.5,0.5)
+C = cutlass_gemm_with_prefetch.mm(A, B, C, D,0.5,0.5)
+
+E = cutlass_gemm_with_prefetch.rmsnorm(E,D,F)
+E = cutlass_gemm_with_prefetch.rmsnorm(E,D,F)
+E = cutlass_gemm_with_prefetch.rmsnorm(E,D,F)
 
 end_event.record()
 
