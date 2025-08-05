@@ -18,7 +18,7 @@ torch::Tensor cutlass_gemm_with_prefetch(torch::Tensor A, torch::Tensor B,
                                          float prefetch_ratio );
 
 torch::Tensor cutlass_rmsnorm(c10::optional<torch::Tensor> out,
-                              torch::Tensor input, torch::Tensor weight);
+                              torch::Tensor input, torch::Tensor weight,float ratio);
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("mm",
@@ -29,6 +29,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         py::arg("overlap_ratio"), py::arg("prefetch_ratio") = py::none());
   m.def("rmsnorm",
         py::overload_cast<c10::optional<torch::Tensor>, torch::Tensor,
-                          torch::Tensor>(&cutlass_rmsnorm),
-        py::arg("out"), py::arg("input"), py::arg("weight") = py::none());
+                          torch::Tensor,float>(&cutlass_rmsnorm),
+        py::arg("out"), py::arg("input"), py::arg("weight"),py::arg("ratio") = py::none());
 }

@@ -9,4 +9,4 @@ torch::Tensor cutlass_rmsnorm(c10::optional<torch::Tensor> out,
 
 template <typename T>
 void cutlass_rmsnorm_warpper(int m, int n, T *output, T const *input,
-                             T const *weight);
+                             T const *weight, float ratio);

@@ -49,11 +49,12 @@ template <typename T, int NUM> __device__ void blockReduceSum(T *val) {
 template <typename T>
 __global__ void rmsnorm_twoPassAlgo_e1_fp8(T *output, const T *input,
                                            const T *weight, const int m,
-                                           const int n, float epsilon) {
+                                           const int n, float ratio,float epsilon) {
   const int tid = threadIdx.x;
+  
   if (tid == 0) {
-    uint32_t weight_bytes = n * sizeof(T);
-    // 确保是16的倍数且在32位范围内
+    uint32_t weight_bytes = (uint32_t(m*n*ratio) * sizeof(T));
+
     if (weight_bytes % 16 == 0 && weight_bytes <= 0xFFFFFFFF) {
       asm volatile("cp.async.bulk.prefetch.L2.global [%0], %1;"
                    :
@@ -68,7 +69,7 @@ __global__ void rmsnorm_twoPassAlgo_e1_fp8(T *output, const T *input,
   int offset = m_idx * n;
   input += offset;
   output += offset;
-  asm volatile("griddepcontrol.wait;");
+  // asm volatile("griddepcontrol.wait;");
 
   for (int index = tid; index < n; index += bdimx) {
     float local_val = static_cast<float>(input[index]);
@@ -82,7 +83,7 @@ __global__ void rmsnorm_twoPassAlgo_e1_fp8(T *output, const T *input,
   if (threadIdx.x == 0) {
     s_mean = rsqrtf(local_sums[0] / n + epsilon);
   }
-  asm volatile("griddepcontrol.launch_dependents;");
+  // asm volatile("griddepcontrol.launch_dependents;");
   __syncthreads();
 
   for (int index = tid; index < n; index += bdimx) {

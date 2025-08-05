@@ -12,7 +12,8 @@
 template <>
 void cutlass_rmsnorm_warpper(int m, int n, cutlass::float_e4m3_t *output,
                              cutlass::float_e4m3_t const *input,
-                             cutlass::float_e4m3_t const *weight) {
+                             cutlass::float_e4m3_t const *weight,
+                            float ratio) {
   cudaStream_t stream = 0;
   const size_t shmem_size = 48;
 
@@ -23,11 +24,11 @@ void cutlass_rmsnorm_warpper(int m, int n, cutlass::float_e4m3_t *output,
   //                                                1e-5);
   LAUNCH_KERNEL_WITH_PDL(rmsnorm_twoPassAlgo_e1_fp8<cutlass::float_e4m3_t>,
                          grid, block, shmem_size, stream, output, input, weight,
-                         m, n, 1e-5);
+                         m, n, ratio,1e-5);
 }
 
 void cutlass_rmsnorm_unpack(torch::Tensor output, torch::Tensor input,
-                            torch::Tensor weight) {
+                            torch::Tensor weight,float ratio) {
   const int m = input.sizes()[0];
   const int n = input.sizes()[1];
   cutlass::float_e4m3_t const *ptrInput =
@@ -36,22 +37,22 @@ void cutlass_rmsnorm_unpack(torch::Tensor output, torch::Tensor input,
       reinterpret_cast<cutlass::float_e4m3_t *>(weight.data_ptr());
   cutlass::float_e4m3_t *ptrOutput =
       reinterpret_cast<cutlass::float_e4m3_t *>(output.data_ptr());
-  cutlass_rmsnorm_warpper(m, n, ptrOutput, ptrInput, ptrWeight);
+  cutlass_rmsnorm_warpper(m, n, ptrOutput, ptrInput, ptrWeight,ratio);
 }
 
 void cutlass_rmsnorm_typecheck(torch::Tensor Output, torch::Tensor Input,
-                               torch::Tensor Weight) {
+                               torch::Tensor Weight,float ratio) {
   if (Input.dtype() != torch::kFloat8_e4m3fn ||
       Weight.dtype() != torch::kFloat8_e4m3fn ||
       Output.dtype() != torch::kFloat8_e4m3fn) {
     throw std::runtime_error("Unsupported data type for A");
   } else {
-    cutlass_rmsnorm_unpack(Output, Input, Weight);
+    cutlass_rmsnorm_unpack(Output, Input, Weight,ratio);
   }
 }
 
 torch::Tensor cutlass_rmsnorm(c10::optional<torch::Tensor> out,
-                              torch::Tensor input, torch::Tensor weight) {
+                              torch::Tensor input, torch::Tensor weight,float ratio) {
   torch::Tensor O;
   if (out.has_value()) {
     O = out.value();
@@ -70,7 +71,7 @@ torch::Tensor cutlass_rmsnorm(c10::optional<torch::Tensor> out,
   torch::Tensor _input = input.contiguous();
   torch::Tensor _weight = weight.contiguous();
   torch::Tensor _output = O.contiguous();
-  cutlass_rmsnorm_typecheck(_output, _input, _weight);
+  cutlass_rmsnorm_typecheck(_output, _input, _weight,ratio);
   if (!_output.is_contiguous()) {
     O.copy_(_output);
   }
