@@ -1,0 +1,8 @@
+{
+    "C_Cpp.default.includePath": [
+        "/usr/local/cuda-12.8/include",
+        "/root/gemmwithprefetch/thirdparty/cutlass/include",
+        "/root/libtorch/include/"
+    ],
+    "git.ignoreLimitWarning": true
+}
