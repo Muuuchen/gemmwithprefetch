@@ -66,3 +66,265 @@ Testing Mode: SHAREDMEM  | Ratio: 0.50
 -- 预期之外的行为， 怎么考虑
 
 - jindu huanman 
+
+
+
+➜  (workspace) gemmwithprefetch git:(main U:4 ?:3) ✗ python test/test_decoder.py
+============================================================
+CUTLASS Transformer Block Performance Test
+============================================================
+Configuration:
+  Batch size: 1
+  Sequence length: 128
+  Model dimension: 2048
+  Number of heads: 32
+  Head dimension: 64
+  FFN dimension: 4096
+
+Creating model...
+
+--- Functional Test ---
+Input shape: torch.Size([1, 128, 2048]), dtype: torch.float32
+✓ Forward pass successful!
+Output shape: torch.Size([1, 128, 2048]), dtype: torch.float8_e4m3fn
+✓ Output values are valid
+
+============================================================
+End-to-End Performance Benchmark
+============================================================
+
+Batch    SeqLen   Latency(ms)  Tokens/sec   TFLOPS    
+------------------------------------------------------------
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+1        64       0.271        235821       15.89     
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+1        128      0.272        470736       31.84     
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+4        64       0.267        959559       64.65     
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+4        128      0.329        1555337      105.19    
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+8        64       0.320        1599829      107.78    
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+8        128      0.498        2055851      139.04    
+
+============================================================
+Performance Summary
+============================================================
+
+Best Throughput:
+  Config: Batch=8, SeqLen=128
+  Throughput: 2055851 tokens/sec
+  Latency: 0.498 ms
+  Performance: 139.04 TFLOPS
+
+Best Latency:
+  Config: Batch=4, SeqLen=64
+  Latency: 0.267 ms
+  Throughput: 959559 tokens/sec
+  Performance: 64.65 TFLOPS
+
+Average Performance:
+  Latency: 0.326 ms
+  Throughput: 1146189 tokens/sec
+  TFLOPS: 77.40
+
+============================================================
+Model Information
+============================================================
+Total parameters: 33,572,864 (33.57M)
+
+Parameter details:
+
+============================================================
+GPU Information
+============================================================
+Device: NVIDIA H100 PCIe
+Compute Capability: (9, 0)
+Total Memory: 85.0 GB
+Allocated Memory: 34.9 MB
+Reserved Memory: 111.1 MB
+➜  (workspace) gemmwithprefetch git:(main U:4 ?:3) ✗ 
+➜  (workspace) gemmwithprefetch git:(main U:4 ?:4) ✗ python test/te
+test_attention.py  test_decoder.py    test_moe.py        test_rmsnorm.py    test_torch.py      
+➜  (workspace) gemmwithprefetch git:(main U:4 ?:4) ✗ python test/test_torch.py 
+================================================================================
+PyTorch vs CUTLASS Transformer Block Performance Comparison
+================================================================================
+Configuration:
+  Model dimension: 2048
+  Number of heads: 32
+  Head dimension: 64
+  FFN dimension: 4096
+
+Creating PyTorch model...
+Creating CUTLASS model...
+
+================================================================================
+Performance Results
+================================================================================
+
+Config               PyTorch                        CUTLASS                        Speedup   
+==================== ============================== ============================== ==========
+Batch x SeqLen       Latency(ms) / Tokens/s         Latency(ms) / Tokens/s         Ratio     
+------------------------------------------------------------------------------------------
+
+1 x 64                Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.470 ms / 136121               Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.268 ms / 238751             1.75x
+
+1 x 128               Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.465 ms / 275500               Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.268 ms / 478099             1.74x
+
+4 x 64                Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.490 ms / 522048               Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.265 ms / 966201             1.85x
+
+4 x 128               Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.494 ms / 1035607              Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.333 ms / 1539440            1.49x
+
+8 x 64                Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.488 ms / 1048315              Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.335 ms / 1527980            1.46x
+
+8 x 128               Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.638 ms / 1604409              Warmup (10 iterations)...
+  Testing (100 iterations)...
+0.520 ms / 1967701            1.23x
+
+================================================================================
+Summary
+================================================================================
+
+PyTorch Average Performance:
+  Latency: 0.508 ms
+  Throughput: 770333 tokens/sec
+  TFLOPS: 52.03
+
+CUTLASS Average Performance:
+  Latency: 0.331 ms
+  Throughput: 1119696 tokens/sec
+  TFLOPS: 75.61
+
+Average Speedup (CUTLASS vs PyTorch):
+  Latency: 1.53x faster
+  Throughput: 1.45x higher
+  TFLOPS: 1.45x higher
+
+================================================================================
+GPU Information
+================================================================================
+Device: NVIDIA H100 PCIe
+Compute Capability: (9, 0)
+Total Memory: 85.0 GB
+
+Memory Usage:
+  Allocated: 100.7 MB
+  Reserved: 209.7 MB
+
+
+    (workspace) gemmwithprefetch git:(main U:4 ?:6) ✗ python test/test_decoder.py
+============================================================
+CUTLASS Transformer Block Performance Test
+============================================================
+Configuration:
+  Batch size: 1
+  Sequence length: 128
+  Model dimension: 2048
+  Number of heads: 32
+  Head dimension: 64
+  FFN dimension: 4096
+
+Creating model...
+
+--- Functional Test ---
+Input shape: torch.Size([1, 128, 2048]), dtype: torch.float32
+✓ Forward pass successful!
+Output shape: torch.Size([1, 128, 2048]), dtype: torch.float8_e4m3fn
+✓ Output values are valid
+
+============================================================
+End-to-End Performance Benchmark
+============================================================
+
+Batch    SeqLen   Latency(ms)  Tokens/sec   TFLOPS    
+------------------------------------------------------------
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+1        64       0.267        239357       16.13     
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+1        128      0.268        477431       32.29     
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+4        64       0.264        969519       65.32     
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+4        128      0.333        1538945      104.08    
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+8        64       0.327        1563768      105.35    
+  Warmup (10 iterations)...
+  Testing (100 iterations)...
+8        128      0.508        2014350      136.24    
+
+============================================================
+Performance Summary
+============================================================
+
+Best Throughput:
+  Config: Batch=8, SeqLen=128
+  Throughput: 2014350 tokens/sec
+  Latency: 0.508 ms
+  Performance: 136.24 TFLOPS
+
+Best Latency:
+  Config: Batch=4, SeqLen=64
+  Latency: 0.264 ms
+  Throughput: 969519 tokens/sec
+  Performance: 65.32 TFLOPS
+
+Average Performance:
+  Latency: 0.328 ms
+  Throughput: 1133895 tokens/sec
+  TFLOPS: 76.57
+
+============================================================
+Model Information
+============================================================
+Total parameters: 33,572,864 (33.57M)
+
+Parameter details:
+
+============================================================
+GPU Information
+============================================================
+Device: NVIDIA H100 PCIe
+Compute Capability: (9, 0)
+Total Memory: 85.0 GB
+Allocated Memory: 34.9 MB
+Reserved Memory: 111.1 MB
+➜  (workspace) gemmwithprefetch git:(main U:4 ?:6) ✗ 
+
+
+参数还没有调优的情况下 比不开pdl性能好（5%）（调优模块还得再改改bug
+，代码改动比较多但是都实现了），但是比torch好50%

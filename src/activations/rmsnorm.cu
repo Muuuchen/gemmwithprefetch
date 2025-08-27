@@ -102,4 +102,3 @@ torch::Tensor cutlass_rmsnorm(c10::optional<torch::Tensor> out,
   }
   return O;
 }
-

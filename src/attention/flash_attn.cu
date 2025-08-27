@@ -4,7 +4,7 @@
 
 #include "cute/tensor.hpp"
 #include "flash_attention/flash_attention.hpp"
-
+#include "launcher.hpp"
 
 
 torch::Tensor flash_attention(torch::Tensor q, torch::Tensor k, torch::Tensor v) {
@@ -19,18 +19,23 @@ torch::Tensor flash_attention(torch::Tensor q, torch::Tensor k, torch::Tensor v)
   auto out = torch::empty_like(q);
 
   float sm_scale = 1.0 / sqrt(head_dim) * M_LOG2E;
+  cudaStream_t stream = 0;
 
   // only for head_dim=64
   config::FlashConfig<cute::half_t> config;
   dim3 block = config.kThreadNum;
   dim3 grid((q_len + config.kBlockM - 1) / config.kBlockM, bs * head_num);
   int shm_size = config.kShmSize;
-  auto partition_kernel = flash_forward<decltype(config)>;
-  cudaFuncSetAttribute(partition_kernel,
-                       cudaFuncAttributeMaxDynamicSharedMemorySize, shm_size);
-  partition_kernel<<<grid, block, shm_size>>>(
-      (void*)out.data_ptr(), (const void*)q.data_ptr(),
-      (const void*)k.data_ptr(), (const void*)v.data_ptr(), head_stride, q_len,
-      k_len, sm_scale);
+  // auto partition_kernel = flash_forward<decltype(config)>;
+  // cudaFuncSetAttribute(partition_kernel,
+  //                      cudaFuncAttributeMaxDynamicSharedMemorySize, shm_size);
+  // partition_kernel<<<grid, block, shm_size>>>(
+  //     (void*)out.data_ptr(), (const void*)q.data_ptr(),
+  //     (const void*)k.data_ptr(), (const void*)v.data_ptr(), head_stride, q_len,
+  //     k_len, sm_scale);
+
+  LAUNCH_KERNEL_WITH_PDL(flash_forward<decltype(config)>, grid,block,shm_size,stream, (void*)out.data_ptr(), (const void*)q.data_ptr(),
+  (const void*)k.data_ptr(), (const void*)v.data_ptr(), head_stride, q_len,
+  k_len, sm_scale);
   return out;
 }

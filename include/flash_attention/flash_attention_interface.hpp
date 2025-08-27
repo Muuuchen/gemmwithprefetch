@@ -9,6 +9,6 @@
 #include <torch/types.h>
 
 #include <cute/tensor.hpp>
-torch::Tensor (torch::Tensor q, torch::Tensor k, torch::Tensor v);
+// torch::Tensor (torch::Tensor q, torch::Tensor k, torch::Tensor v);
 
 

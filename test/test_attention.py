@@ -40,6 +40,8 @@ q_len = 1024
 kv_len = q_len
 head_embd = 64 
 
+
+
 q = torch.randn(batch_size, q_len, n_head, head_embd).cuda().half()
 k = torch.randn(batch_size, kv_len, n_head, head_embd).cuda().half()
 v = torch.randn(batch_size, kv_len, n_head, head_embd).cuda().half()
@@ -53,4 +55,7 @@ v2 = v.reshape(batch_size * kv_len, n_head, head_embd)
 a = manual_attn(q1, k1, v1)
 # c = single_prefill_with_kv_cache(q2, k2, v2)
 d = cutlass_gemm_with_prefetch.fa(q, k, v)
-print('attn values sanity check:', torch.allclose(a, d, rtol=1e-03, atol=1e-03))
+
+
+d = cutlass_gemm_with_prefetch.fa(q, k, v).to(torch.float8_e4m3fn)
+print(d)

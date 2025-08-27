@@ -50,6 +50,7 @@ source_files = [
     os.path.join(project_root, "src/gemm/gemm_with_prefetch.cu"),
     os.path.join(project_root, "src/activations/rmsnorm.cu"),
     os.path.join(project_root, "src/attention/flash_attn.cu"),
+    os.path.join(project_root, "src/addResidual/add.cu"),
     os.path.join(project_root, "src/binding.cu"),
     
 ]

@@ -11,9 +11,9 @@
 #include <launcher.hpp>
 #include <gemm_fp8/gemm_with_prefetch_interface.hpp>
 #include <flash_attention/flash_attention.hpp>
+#include <addResidual/add.hpp>
 
-
-
+torch::Tensor add_residual(torch::Tensor input, torch::Tensor residual);
 torch::Tensor cutlass_gemm_with_prefetch(torch::Tensor A, torch::Tensor B,
                                          c10::optional<torch::Tensor> out,
                                          torch::Tensor D,
@@ -33,6 +33,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     .value("FREFTECH", KERNEL_OVERLAP_HIERARCHY::FREFTECH)
     .value("SHAREDMEM", KERNEL_OVERLAP_HIERARCHY::SHAREDMEM)
     .export_values();
+    m.def("add_residual",
+      py::overload_cast<torch::Tensor, torch::Tensor>(&add_residual),
+        py::arg("input"), py::arg("residual"));
 m.def("fa",
       py::overload_cast<torch::Tensor, torch::Tensor,
                           torch::Tensor>(&flash_attention),
