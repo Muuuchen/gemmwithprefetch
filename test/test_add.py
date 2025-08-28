@@ -14,4 +14,5 @@ input = torch.randn(dim1,dim2).cuda().to(torch.float8_e4m3fn)
 residual = torch.randn(dim1,dim2).cuda().to(torch.float8_e4m3fn)
 
 out = cutlass_gemm_with_prefetch.add_residual(input,residual)
+
 print(out)
