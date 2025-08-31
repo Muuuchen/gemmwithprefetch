@@ -7,6 +7,10 @@ from dataclasses import dataclass
 import pandas as pd
 import os
 from datetime import datetime
+import random
+
+# 设置环境变量
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 # 结果保存目录
 RESULTS_DIR = "decoder_layer_optimization_results"
@@ -33,9 +37,6 @@ class DecoderLayerConfig:
     ffn1_prefetch: float
     ffn2_overlap: float
     ffn2_prefetch: float
-    # RMSNorm
-    rmsnorm_prefetch: float
-    rmsnorm_hierarchy: int
     
     def to_dict(self):
         return {
@@ -47,12 +48,10 @@ class DecoderLayerConfig:
             'ffn1_prefetch': self.ffn1_prefetch,
             'ffn2_overlap': self.ffn2_overlap,
             'ffn2_prefetch': self.ffn2_prefetch,
-            'rmsnorm_prefetch': self.rmsnorm_prefetch,
-            'rmsnorm_hierarchy': self.rmsnorm_hierarchy
         }
 
 class DecoderLayerBenchmark:
-    """Decoder Layer性能测试"""
+    """Decoder Layer性能测试 - 简化版本，不使用RMSNorm"""
     
     def __init__(self, d_model: int = 768, n_heads: int = 12, d_ff: int = 3072,
                  batch_size: int = 1, seq_len: int = 128):
@@ -67,13 +66,8 @@ class DecoderLayerBenchmark:
         # 初始化权重
         self._init_weights()
         
-        # 定义参数空间（简化版本）
-        self.mm_values = [0.0, 0.5, 1.0, -1.0]  # 减少参数空间
-        self.rmsnorm_values = [0.0, 0.5, 1.0]
-        self.hierarchy_values = [
-            cutlass_gemm_with_prefetch.KernelOverlapHierarchy.FREFTECH,
-            cutlass_gemm_with_prefetch.KernelOverlapHierarchy.SHAREDMEM
-        ]
+        # 定义参数空间
+        self.mm_values = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, -1.0]
         
     def _init_weights(self):
         """初始化权重"""
@@ -90,32 +84,17 @@ class DecoderLayerBenchmark:
         self.b_ff1 = torch.zeros(self.d_ff, device=self.device).to(torch.float8_e4m3fn)
         self.W_ff2 = (torch.randn(self.d_ff, self.d_model, device=self.device) * scale).to(torch.float8_e5m2)
         self.b_ff2 = torch.zeros(self.d_model, device=self.device).to(torch.float8_e4m3fn)
-        
-        # RMSNorm权重 - 3个RMSNorm层
-        self.norm1_weight = torch.ones(self.d_model, device=self.device).to(torch.float8_e4m3fn)  # attention前
-        self.norm2_weight = torch.ones(self.d_model, device=self.device).to(torch.float8_e4m3fn)  # FFN前
-        self.norm3_weight = torch.ones(self.d_ff, device=self.device).to(torch.float8_e4m3fn)     # FFN中间
     
     def decoder_layer_forward(self, x: torch.Tensor, config: DecoderLayerConfig) -> torch.Tensor:
-        """执行完整的decoder layer前向传播"""
+        """执行完整的decoder layer前向传播 - 不使用RMSNorm"""
         batch_size, seq_len, _ = x.shape
         
         # 保存第一个residual
         residual1 = x.to(torch.float8_e4m3fn)
         
-        # 1. 第一个RMSNorm + Attention
-        # RMSNorm1
-        x_norm1 = torch.zeros_like(x, dtype=torch.float8_e4m3fn)
-        cutlass_gemm_with_prefetch.rmsnorm(
-            residual1,
-            self.norm1_weight,
-            x_norm1,
-            config.rmsnorm_prefetch,
-            config.rmsnorm_hierarchy
-        )
-        
+        # 1. Attention部分
         # QKV Projection
-        x_flat = x_norm1.reshape(-1, self.d_model)
+        x_flat = residual1.reshape(-1, self.d_model)
         qkv_output = torch.zeros(batch_size * seq_len, 3 * self.d_model,
                                 device=x.device, dtype=torch.float8_e4m3fn)
         
@@ -158,19 +137,9 @@ class DecoderLayerBenchmark:
         # 保存第二个residual
         residual2 = x
         
-        # 2. 第二个RMSNorm + FFN
-        # RMSNorm2 (before FFN)
-        x_norm2 = torch.zeros_like(x, dtype=torch.float8_e4m3fn)
-        cutlass_gemm_with_prefetch.rmsnorm(
-            x,
-            self.norm2_weight,
-            x_norm2,
-            config.rmsnorm_prefetch,
-            config.rmsnorm_hierarchy
-        )
-        
+        # 2. FFN部分
         # FFN第一层
-        x_flat = x_norm2.reshape(-1, self.d_model)
+        x_flat = x.reshape(-1, self.d_model)
         ff1_output = torch.zeros(batch_size * seq_len, self.d_ff,
                                device=x.device, dtype=torch.float8_e4m3fn)
         
@@ -183,21 +152,11 @@ class DecoderLayerBenchmark:
             config.ffn1_prefetch
         )
         
-        # RMSNorm3 (in the middle of FFN)
-        hidden_norm = torch.zeros_like(hidden, dtype=torch.float8_e4m3fn)
-        cutlass_gemm_with_prefetch.rmsnorm(
-            hidden,
-            self.norm3_weight,
-            hidden_norm,
-            config.rmsnorm_prefetch,
-            config.rmsnorm_hierarchy
-        )
-        
-        # FFN第二层
+        # FFN第二层（直接连接，不使用激活函数）
         ff2_output = torch.zeros(batch_size * seq_len, self.d_model,
                                device=x.device, dtype=torch.float8_e4m3fn)
         output = cutlass_gemm_with_prefetch.mm(
-            hidden_norm,
+            hidden,
             self.W_ff2,
             ff2_output,
             self.b_ff2.unsqueeze(0).expand(batch_size * seq_len, -1),
@@ -243,42 +202,116 @@ class DecoderLayerBenchmark:
         
         return avg_time_ms
     
-    def run_benchmark(self):
+    def generate_smart_configs(self, n_samples=20000):
+        """生成智能采样的配置"""
+        configs = []
+        
+        # 1. 添加关键配置（必须测试的）
+        key_configs = [
+            # Baseline
+            DecoderLayerConfig(-1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0),
+            # All prefetch
+            DecoderLayerConfig(0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0),
+            # All overlap
+            DecoderLayerConfig(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0),
+            # Mixed
+            DecoderLayerConfig(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+        ]
+        configs.extend(key_configs)
+        
+        # 2. 网格采样 - 使用更粗的网格
+        coarse_values = [-1.0, 0.0, 0.5, 1.0]
+        grid_configs = []
+        
+        # 为每个mm操作独立采样
+        for qkv_vals in itertools.product(coarse_values, repeat=2):
+            for out_vals in itertools.product(coarse_values, repeat=2):
+                for ff1_vals in itertools.product(coarse_values, repeat=2):
+                    for ff2_vals in itertools.product(coarse_values, repeat=2):
+                        if random.random() < 0.1:  # 10%的概率选择
+                            grid_configs.append(DecoderLayerConfig(
+                                qkv_vals[0], qkv_vals[1],
+                                out_vals[0], out_vals[1],
+                                ff1_vals[0], ff1_vals[1],
+                                ff2_vals[0], ff2_vals[1]
+                            ))
+        
+        configs.extend(grid_configs[:500])  # 最多添加500个网格配置
+        
+        # 3. 随机采样
+        n_random = n_samples - len(configs)
+        for _ in range(n_random):
+            config = DecoderLayerConfig(
+                random.choice(self.mm_values),
+                random.choice(self.mm_values),
+                random.choice(self.mm_values),
+                random.choice(self.mm_values),
+                random.choice(self.mm_values),
+                random.choice(self.mm_values),
+                random.choice(self.mm_values),
+                random.choice(self.mm_values)
+            )
+            configs.append(config)
+        
+        # 4. 基于经验的配置（某些模式可能更有效）
+        experience_configs = []
+        for _ in range(200):
+            # 倾向于使用相同的overlap/prefetch策略
+            strategy = random.choice(['overlap', 'prefetch', 'mixed', 'none'])
+            if strategy == 'overlap':
+                overlap_val = random.choice([0.5, 0.8, 1.0])
+                config = DecoderLayerConfig(
+                    overlap_val, 0.0, overlap_val, 0.0,
+                    overlap_val, 0.0, overlap_val, 0.0
+                )
+            elif strategy == 'prefetch':
+                prefetch_val = random.choice([0.5, 0.8, 1.0])
+                config = DecoderLayerConfig(
+                    0.0, prefetch_val, 0.0, prefetch_val,
+                    0.0, prefetch_val, 0.0, prefetch_val
+                )
+            elif strategy == 'mixed':
+                val = random.choice([0.2, 0.4, 0.6])
+                config = DecoderLayerConfig(
+                    val, val, val, val, val, val, val, val
+                )
+            else:
+                config = DecoderLayerConfig(-1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0)
+            
+            experience_configs.append(config)
+        
+        configs.extend(experience_configs)
+        
+        # 去重
+        unique_configs = []
+        seen = set()
+        for config in configs:
+            key = (config.qkv_overlap, config.qkv_prefetch,
+                   config.output_overlap, config.output_prefetch,
+                   config.ffn1_overlap, config.ffn1_prefetch,
+                   config.ffn2_overlap, config.ffn2_prefetch)
+            if key not in seen:
+                seen.add(key)
+                unique_configs.append(config)
+        
+        return unique_configs[:n_samples]
+    
+    def run_benchmark(self, n_samples=2000):
         """运行参数测试"""
-        # Baseline配置 - 所有mm参数都是(-1.0, 0.0)
+        # Baseline配置
         baseline_config = DecoderLayerConfig(
             qkv_overlap=-1.0, qkv_prefetch=0.0,
             output_overlap=-1.0, output_prefetch=0.0,
             ffn1_overlap=-1.0, ffn1_prefetch=0.0,
             ffn2_overlap=-1.0, ffn2_prefetch=0.0,
-            rmsnorm_prefetch=0.0,
-            rmsnorm_hierarchy=cutlass_gemm_with_prefetch.KernelOverlapHierarchy.FREFTECH
         )
         
         print("Testing baseline configuration (all mm params: -1.0, 0.0)...")
         baseline_latency = self.benchmark_config(baseline_config, warmup=20, iterations=100)
         print(f"Baseline latency: {baseline_latency:.3f} ms")
         
-        # 生成参数组合（简化版本，避免组合爆炸）
-        all_configs = []
-        
-        # 只测试一些代表性的组合
-        for qkv_params in [(0.0, 0.0), (0.5, 0.5), (1.0, 0.0), (-1.0, 0.0)]:
-            for out_params in [(0.0, 0.0), (0.5, 0.5), (1.0, 0.0), (-1.0, 0.0)]:
-                for ffn1_params in [(0.0, 0.0), (0.5, 0.5), (1.0, 0.0), (-1.0, 0.0)]:
-                    for ffn2_params in [(0.0, 0.0), (0.5, 0.5), (1.0, 0.0), (-1.0, 0.0)]:
-                        for rms_p in [0.0, 0.5]:
-                            for hier in self.hierarchy_values:
-                                config = DecoderLayerConfig(
-                                    qkv_overlap=qkv_params[0], qkv_prefetch=qkv_params[1],
-                                    output_overlap=out_params[0], output_prefetch=out_params[1],
-                                    ffn1_overlap=ffn1_params[0], ffn1_prefetch=ffn1_params[1],
-                                    ffn2_overlap=ffn2_params[0], ffn2_prefetch=ffn2_params[1],
-                                    rmsnorm_prefetch=rms_p,
-                                    rmsnorm_hierarchy=hier
-                                )
-                                all_configs.append(config)
-        
+        # 生成智能采样的配置
+        all_configs = self.generate_smart_configs(n_samples)
         print(f"\nTotal configurations to test: {len(all_configs)}")
         
         # 测试所有配置
@@ -307,31 +340,31 @@ def test_multiple_shapes():
     
     shapes = [
         # (batch_size, seq_len, d_model, n_heads, d_ff, name)
-        (1, 128, 768, 12, 3072, "BERT-base"),
-        (1, 256, 768, 12, 3072, "BERT-base-med"),
-        (1, 512, 768, 12, 3072, "BERT-base-long"),
-        (4, 128, 768, 12, 3072, "BERT-base-batch4"),
-        (1, 128, 1024, 16, 4096, "BERT-large"),
-        (1, 128, 2048, 16, 8192, "GPT-2-medium"),
-        (1, 128, 4096, 32, 11008, "LLaMA-7B-like"),
-        (1, 128, 768, 8, 2048, "Small-model"),
+        (1,32,256,4,1024,"tiny"),
+        (1, 64, 512, 8, 2048, "BERT-base")
+        # (1, 128, 768, 12, 3072, "BERT-base"),
+        # (1, 512, 768, 12, 3072, "BERT-base-long"),
+        # (4, 128, 768, 12, 3072, "BERT-base-batch4"),
+        # (1, 128, 1024, 16, 4096, "BERT-large"),
+        # (1, 128, 4096, 32, 11008, "LLaMA-7B-like"),
+        # (1, 256, 4096, 32, 11008, "LLaMA-7B-long"),
     ]
     
     run_dir = ensure_results_dir()
     summary_results = []
     
     for batch_size, seq_len, d_model, n_heads, d_ff, name in shapes:
-        print(f"\n{'='*80}")
+        print(f"\n{'='*70}")
         print(f"Testing: {name}")
         print(f"Shape: batch={batch_size}, seq_len={seq_len}, d_model={d_model}, n_heads={n_heads}, d_ff={d_ff}")
-        print(f"{'='*80}")
+        print(f"{'='*70}")
         
         try:
             # 创建benchmark
             benchmark = DecoderLayerBenchmark(d_model, n_heads, d_ff, batch_size, seq_len)
             
-            # 运行测试
-            df, baseline_latency = benchmark.run_benchmark()
+            # 运行测试（使用采样）
+            df, baseline_latency = benchmark.run_benchmark(n_samples=20000)
             
             if len(df) == 0:
                 print(f"No valid results for {name}")
@@ -344,32 +377,38 @@ def test_multiple_shapes():
             result_file = os.path.join(run_dir, f"{name.replace('-', '_')}_results.csv")
             df.to_csv(result_file, index=False)
             
-            # 打印top 5
-            print(f"\nTop 5 configurations for {name}:")
+            # 打印top 10
+            print(f"\nTop 10 configurations for {name}:")
             print(f"Baseline latency: {baseline_latency:.3f} ms (all mm: -1.0, 0.0)")
-            print("\nRank | Latency(ms) | Speedup |   QKV   |  Output  |   FFN1   |   FFN2   | RMS")
-            print("-" * 90)
+            print("\nRank | Latency(ms) | Speedup | QKV(o,p) | Output(o,p) | FFN1(o,p) | FFN2(o,p)")
+            print("-" * 80)
             
-            for idx, (i, row) in enumerate(top10.head(5).iterrows()):
+            for idx, (i, row) in enumerate(top10.iterrows()):
                 print(f"{idx+1:4d} | {row['latency_ms']:11.3f} | {row['speedup']:7.2f}x | "
                       f"({row['qkv_overlap']:3.1f},{row['qkv_prefetch']:3.1f}) | "
                       f"({row['output_overlap']:3.1f},{row['output_prefetch']:3.1f}) | "
                       f"({row['ffn1_overlap']:3.1f},{row['ffn1_prefetch']:3.1f}) | "
-                      f"({row['ffn2_overlap']:3.1f},{row['ffn2_prefetch']:3.1f}) | "
-                      f"{row['rmsnorm_prefetch']:.1f}")
+                      f"({row['ffn2_overlap']:3.1f},{row['ffn2_prefetch']:3.1f})")
+            
+            # 分析最佳配置的模式
+            print("\nBest configuration analysis:")
+            best = top10.iloc[0]
+            print(f"QKV strategy: overlap={best['qkv_overlap']:.1f}, prefetch={best['qkv_prefetch']:.1f}")
+            print(f"Output strategy: overlap={best['output_overlap']:.1f}, prefetch={best['output_prefetch']:.1f}")
+            print(f"FFN1 strategy: overlap={best['ffn1_overlap']:.1f}, prefetch={best['ffn1_prefetch']:.1f}")
+            print(f"FFN2 strategy: overlap={best['ffn2_overlap']:.1f}, prefetch={best['ffn2_prefetch']:.1f}")
             
             # 保存到汇总
-            best_config = top10.iloc[0]
             summary_results.append({
                 'Shape': name,
                 'Dimensions': f"{batch_size}x{seq_len}x{d_model}x{n_heads}x{d_ff}",
                 'Baseline(ms)': f"{baseline_latency:.3f}",
-                'Best(ms)': f"{best_config['latency_ms']:.3f}",
-                'Speedup': f"{best_config['speedup']:.2f}x",
-                'Best_QKV': f"({best_config['qkv_overlap']:.1f},{best_config['qkv_prefetch']:.1f})",
-                'Best_Output': f"({best_config['output_overlap']:.1f},{best_config['output_prefetch']:.1f})",
-                'Best_FFN1': f"({best_config['ffn1_overlap']:.1f},{best_config['ffn1_prefetch']:.1f})",
-                'Best_FFN2': f"({best_config['ffn2_overlap']:.1f},{best_config['ffn2_prefetch']:.1f})"
+                'Best(ms)': f"{best['latency_ms']:.3f}",
+                'Speedup': f"{best['speedup']:.2f}x",
+                'Best_QKV': f"({best['qkv_overlap']:.1f},{best['qkv_prefetch']:.1f})",
+                'Best_Output': f"({best['output_overlap']:.1f},{best['output_prefetch']:.1f})",
+                'Best_FFN1': f"({best['ffn1_overlap']:.1f},{best['ffn1_prefetch']:.1f})",
+                'Best_FFN2': f"({best['ffn2_overlap']:.1f},{best['ffn2_prefetch']:.1f})"
             })
             
             # 清理内存
@@ -378,6 +417,8 @@ def test_multiple_shapes():
             
         except Exception as e:
             print(f"Failed to test {name}: {e}")
+            import traceback
+            traceback.print_exc()
             torch.cuda.empty_cache()
     
     # 保存汇总结果
@@ -399,9 +440,13 @@ def test_multiple_shapes():
 
 
 if __name__ == "__main__":
-    print("Starting Decoder Layer Parameter Optimization")
+    print("Starting Decoder Layer Parameter Optimization (Smart Sampling)")
     print(f"GPU: {torch.cuda.get_device_name()}")
     print("Baseline configuration: all mm parameters = (-1.0, 0.0)")
+    
+    # 设置随机种子以确保可重复性
+    random.seed(42)
+    torch.manual_seed(42)
     
     import time
     start_time = time.time()

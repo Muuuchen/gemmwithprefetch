@@ -1,1 +1,4 @@
 *.so
+*.csv
+*.png
+result

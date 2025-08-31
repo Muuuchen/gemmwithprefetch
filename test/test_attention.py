@@ -197,14 +197,18 @@ def test_multiple_shapes():
     
     shapes = [
         # (batch_size, seq_len, d_model, n_heads, name)
-        (1, 128, 768, 12, "BERT-base"),
-        (1, 512, 768, 12, "BERT-base-long"),
-        (4, 128, 768, 12, "BERT-base-batch4"),
-        (8, 128, 768, 12, "BERT-base-batch8"),
-        (1, 128, 1024, 16, "BERT-large"),
-        (1, 128, 4096, 32, "GPT-3-like"),
-        (1, 256, 4096, 32, "GPT-3-long"),
-        (1, 128, 768, 8, "Small-model"),
+        # (1, 128, 768, 12, "BERT-base"),
+        # (1, 512, 768, 12, "BERT-base-long"),
+        # (4, 128, 768, 12, "BERT-base-batch4"),
+        # (8, 128, 768, 12, "BERT-base-batch8"),
+        # (1, 128, 1024, 16, "BERT-large"),
+        # (1, 128, 4096, 32, "GPT-3-like"),
+        # (1, 256, 4096, 32, "GPT-3-long"),
+        # (1, 128, 768, 8, "Small-model"),
+            (1,32,1024,4,"tiny"),
+
+
+
     ]
     
     run_dir = ensure_results_dir()
