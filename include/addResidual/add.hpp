@@ -49,7 +49,7 @@ __global__ void addBiasAttention_prefetch(T*  output, const T* input, const T* r
 template <typename T>
 __global__ void addBiasAttention_shared_mem(T*  output, const T* input, const T* residual,const int n ){
     const int col_index = blockIdx.y * blockDim.x + threadIdx.x;
-    extern __shared__ shared_mem[];
+    extern __shared__ T shared_mem[];
     T* weight_s = shared_mem;
     if(col_index < n){
         weight_s[threadIdx.x] = residual[blockIdx.x*n +col_index];

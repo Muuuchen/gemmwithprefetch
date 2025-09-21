@@ -204,7 +204,8 @@ def test_multiple_shapes():
         # (1, 128, 1024, 16, "BERT-large"),
         # (1, 128, 4096, 32, "GPT-3-like"),
         # (1, 256, 4096, 32, "GPT-3-long"),
-        # (1, 128, 768, 8, "Small-model"),
+        # (1, 128, 768, 8, "Small-model")
+        # llama ,
             (1,32,1024,4,"tiny"),
 
 

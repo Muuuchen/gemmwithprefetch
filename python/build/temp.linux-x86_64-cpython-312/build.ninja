@@ -1,0 +1,41 @@
+ninja_required_version = 1.3
+cxx = c++
+nvcc = /usr/local/cuda/bin/nvcc
+
+cflags = -pthread -fno-strict-overflow -Wsign-compare -Wunreachable-code -DNDEBUG -g -O3 -Wall -fPIC -fPIC -I/root/gemmwithprefetch/thirdparty/cutlass/tools/util/include -I/root/gemmwithprefetch/thirdparty/cutlass/include -I/root/gemmwithprefetch/include -I/usr/local/cuda/include -I/root/workspace/.venv/lib/python3.12/site-packages/torch/include -I/root/workspace/.venv/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda/include -I/root/workspace/.venv/include -I/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/include/python3.12 -c
+post_cflags = -O3 -std=c++17 -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1016"' -DTORCH_EXTENSION_NAME=launchain -D_GLIBCXX_USE_CXX11_ABI=1
+cuda_cflags = -I/root/gemmwithprefetch/thirdparty/cutlass/tools/util/include -I/root/gemmwithprefetch/thirdparty/cutlass/include -I/root/gemmwithprefetch/include -I/usr/local/cuda/include -I/root/workspace/.venv/lib/python3.12/site-packages/torch/include -I/root/workspace/.venv/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda/include -I/root/workspace/.venv/include -I/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/include/python3.12 -c
+cuda_post_cflags = -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options ''"'"'-fPIC'"'"'' -O3 -std=c++17 '--generate-code=arch=compute_90a,code=[sm_90a]' --expt-relaxed-constexpr --expt-extended-lambda -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1016"' -DTORCH_EXTENSION_NAME=launchain -D_GLIBCXX_USE_CXX11_ABI=1
+cuda_dlink_post_cflags = 
+sycl_dlink_post_cflags = 
+ldflags = 
+
+rule compile
+  command = $cxx -MMD -MF $out.d $cflags -c $in -o $out $post_cflags
+  depfile = $out.d
+  deps = gcc
+
+rule cuda_compile
+  depfile = $out.d
+  deps = gcc
+  command = $nvcc --generate-dependencies-with-compile --dependency-output $out.d $cuda_cflags -c $in -o $out $cuda_post_cflags
+
+
+
+
+
+
+
+build /root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/activations/rmsnorm.o: cuda_compile /root/gemmwithprefetch/src/activations/rmsnorm.cu
+build /root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/addResidual/add.o: cuda_compile /root/gemmwithprefetch/src/addResidual/add.cu
+build /root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/attention/flash_attn.o: cuda_compile /root/gemmwithprefetch/src/attention/flash_attn.cu
+build /root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/binding.o: cuda_compile /root/gemmwithprefetch/src/binding.cu
+build /root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/gemm/gemm_with_prefetch.o: cuda_compile /root/gemmwithprefetch/src/gemm/gemm_with_prefetch.cu
+
+
+
+
+
+
+
+

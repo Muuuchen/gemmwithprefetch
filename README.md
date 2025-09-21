@@ -442,3 +442,82 @@ SUMMARY OF ALL SHAPES
 ====================================================================================================
 Shape  Dimensions Baseline(ms) Best(ms) Speedup  Best_QKV Best_Output
  tiny 1x32x1024x4        0.210    0.165   1.27x (1.0,0.2)   (0.0,1.0)
+
+
+
+
+- 
+
+框架上主要和 torch， sgalng 比较下，对于torch主要是相同的网络实现一下，（补充一下torch.compile + cuda graph）
+
+对于sglang 主要是吧这个方法应用上去，测试一下对比，然后拿自己的框架和sglang比一下
+
+
+- 网络上则是 选择 bert 和一个 llama 剩下的网络其实可以拆开不同模块再去试试
+
+
+误差线 颜色一致， 黑色的横线粗细一致 两头对齐
+
+
+编译器常量，多展开，试试
+
+场景：打分 查询 再搜搜 
+
+<template int >
+ 
+
+
+vit ， 打分
+
+腾讯的场景
+文献， 背景 
+
+3dim
+1
+2
+
+q k v
+
+
+1. torch 各种bench 都比一遍 （compile）(全部bench bert+ vit llama...) 
+
+2. 再调研下场景， 完善场景下的逻辑（清晰做的目标）
+
+3. 完善框架
+
+3. sglang, vllm（最后）
+
+在当前
+
+
+
+
+1. 本地推理引擎， bert torch-inductor\   小模型和transformer对比 《-｜｜  vllm（看看效果）
+
+差的情况下，同时存在这几个瓶颈（输入本身不长， 但是小模型也够用， 举个任务比较简单的例子，生成一个公式下的triton的代码，rag会找很多triton的例子， 会带着rag的数据送个code的小模型 也足够用）
+1. 用户指令请求本身不长， 做一次RAG，首先预处理embedding（bert） //
+2. RAG的同时搜索，用户的请求本身做prefill的计算，qwen（小模型）  //不同类型，这里组合各种不同的类型
+
+3. 会有一个长文本，长文本中的prefill不管，在decode的时候部分（
+ https://arxiv.org/pdf/2501.05465
+
+子图：
+FFN 模型 验证 最开始例子应用集的case对比
+
+m2 补充补充
+
+m1
+m2有两个大表，  都得能跑
+
+对例子用开源
+
+子图上
+
+本地 RAG怎么调用，典型的RAG系统 
+
+cudagraph  
+   
+   
+   
+
+   

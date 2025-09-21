@@ -63,11 +63,11 @@ for src in source_files:
         raise FileNotFoundError(f"Source file not found: {src}")
 
 setup(
-    name='cutlass_gemm_with_prefetch',
+    name='launchain',
     version='0.1',
     ext_modules=[
         CUDAExtension(
-            name="cutlass_gemm_with_prefetch",
+            name="launchain",
             sources=source_files,
             include_dirs=include_dirs,
             extra_compile_args={

@@ -1,0 +1,4 @@
+# ninja log v5
+0	46909	1756713619839917350	/root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/activations/rmsnorm.o	3a8509cd935c2a3b
+1	64331	1756713637255786733	/root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/attention/flash_attn.o	695de48b09bf6839
+2	73781	1756713646699713555	/root/gemmwithprefetch/python/build/temp.linux-x86_64-cpython-312/root/gemmwithprefetch/src/gemm/gemm_with_prefetch.o	f4ab3050cc507737

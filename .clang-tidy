@@ -1,0 +1,37 @@
+
+Checks: >
+  -*,                         # 禁用所有默认检查
+  cuda-*,                     # 启用所有CUDA相关检查
+  bugprone-*,                 # 启用常见错误检查
+  performance-*,              # 性能相关检查
+  readability-*,              # 可读性检查
+  modernize-*,                # 现代化代码检查
+  clang-analyzer-*,           # 静态分析检查
+
+  # 特别重要的CUDA相关检查
+  cuda-misplaced-warning,     # 检查CUDA警告位置
+  cuda-default-arg,           # 检查CUDA默认参数
+  cuda-compat,                # 检查CUDA兼容性问题
+
+  # 内存管理检查
+  bugprone-unused-raii,       # 未使用的RAII对象
+  bugprone-suspicious-memset, # 可疑的memset使用
+
+  # 性能优化检查
+  performance-inefficient-vector-operation, # 低效的向量操作
+  performance-type-promotion-in-math-fn,    # 数学函数中的类型提升
+
+  # 代码风格检查
+  readability-identifier-naming,  # 标识符命名规范
+  readability-magic-numbers,      # 魔法数字检查
+
+WarningsAsErrors: false
+HeaderFilterRegex: '.*'
+AnalyzeTemporaryDtors: true
+CheckOptions:
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelCase
+  - key: readability-identifier-naming.VariableCase
+    value: camelCase
